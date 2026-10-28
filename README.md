@@ -84,6 +84,9 @@ NVIDIA カスタム解像度として送る。必要帯域は約 22Gbps なの�
 - **PC／TV の再起動後も維持されるかは未確認。**
 - ハイフレームレートモードを ON/OFF すると、TV が HDMI 互換性設定を「オン」に書き換えることがあった。戻すときは「自動」に。
 - `output_frame_rate`（MediaTek デバッグノード）の意味は数値の挙動からの推定（60Hz 入力時は 119926＝入力の 2 倍）。
+- **YCbCr 4:2:0 にはできない**（カスタムタイミングには 4:2:0 が使われない）。詳細は [docs/findings.md](docs/findings.md)。
+- 瞬断（一瞬のブラックアウト）が出る場合は、NVIDIA の出力色を RGB・フルレンジにすると止まった例がある（関連は未確定）。
+  回数は `scripts/windows/dropcount.ps1` で数えられる。
 
 ## 中身
 
@@ -95,7 +98,8 @@ NVIDIA カスタム解像度として送る。必要帯域は約 22Gbps なの�
 | `scripts/windows/rxinfo.ps1` | TV の HDMI 受信部状態（FRL レート、タイミング、色形式）を表示 |
 | `scripts/windows/setmode.ps1` / `listmodes.ps1` | Windows の表示モード変更（自動復帰付き）／一覧 |
 | `scripts/windows/parse_edid.ps1` | Windows が保存した EDID のデコード |
-| `scripts/windows/nvcolor.py` / `nvcolor_probe.py` | NVAPI 色形式の取得・変更・対応確認 |
+| `scripts/windows/nvcolor.py` / `nvcolor_probe.py` / `nvcolor_restore.py` | NVAPI 色形式の取得・変更・対応確認・RGB への復帰 |
+| `scripts/windows/dropcount.ps1` | 一定時間内の TV 受信部の瞬断回数を数える |
 | `scripts/windows/ui.ps1` | uiautomator で TV の UI を読み、キー操作（Game Bar の操作に使用） |
 | `scripts/tv/*.sh` | TV 上で読む sysfs（パネル出力レート、HDMI 受信部デバッグ） |
 | `scripts/analysis/dexscan.py` / `dexflow.py` | 依存なしの簡易 DEX/ELF 文字列・呼び出し列挙（APK 解析用） |

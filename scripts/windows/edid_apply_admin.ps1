@@ -1,7 +1,8 @@
 # Run elevated. Applies edid_override.bin as the Windows EDID override for the TV, restarts the GPU driver,
 # then waits for edid_keep.flag. Without the flag within $Timeout seconds it removes the override and restarts again.
 # -Remove: just remove the override and restart the GPU driver.
-param([int]$Timeout = 180, [switch]$Remove, [string]$MonitorId = 'TOL9653')
+# -RollbackBin <file>: on rollback, write this EDID (e.g. a known-good override) instead of removing the override.
+param([int]$Timeout = 180, [switch]$Remove, [string]$MonitorId = 'TOL9653', [string]$RollbackBin = '')
 $dir = $PSScriptRoot
 $log = Join-Path $dir 'edid_apply.log'
 function L($m) { "$(Get-Date -Format 'HH:mm:ss') $m" | Tee-Object -FilePath $log -Append }
@@ -12,7 +13,16 @@ $key = "HKLM:\$regPath"
 $ovr = Join-Path $key 'EDID_OVERRIDE'
 $gpu = (Get-PnpDevice -Class Display -PresentOnly | Where-Object { $_.InstanceId -like 'PCI\VEN_10DE*' } | Select-Object -First 1).InstanceId
 function Restart-Gpu { L 'restarting GPU driver'; $o = pnputil /restart-device "$gpu" 2>&1; L ($o -join ' / '); Start-Sleep 8 }
+function Write-Override($file) {
+    [byte[]]$e = [IO.File]::ReadAllBytes($file)
+    New-Item -Path $ovr -Force | Out-Null
+    for ($b = 0; $b * 128 -lt $e.Length; $b++) {
+        New-ItemProperty -Path $ovr -Name "$b" -PropertyType Binary -Value ([byte[]]$e[($b * 128)..($b * 128 + 127)]) -Force | Out-Null
+    }
+    L "override written from $(Split-Path $file -Leaf) ($($e.Length) bytes)"
+}
 function Remove-Override {
+    if ($RollbackBin -and -not $Remove) { Write-Override (Join-Path $dir $RollbackBin); Restart-Gpu; return }
     if (Test-Path $ovr) { Remove-Item $ovr -Recurse -Force; L 'override removed' } else { L 'no override present' }
     Restart-Gpu
 }
@@ -21,12 +31,7 @@ try {
     Remove-Item (Join-Path $dir 'edid_keep.flag') -ErrorAction SilentlyContinue
     reg export "HKLM\$regPath" (Join-Path $dir 'edid_devparams_backup.reg') /y | Out-Null
     L 'backup exported'
-    [byte[]]$e = [IO.File]::ReadAllBytes((Join-Path $dir 'edid_override.bin'))
-    New-Item -Path $ovr -Force | Out-Null
-    for ($b = 0; $b * 128 -lt $e.Length; $b++) {
-        New-ItemProperty -Path $ovr -Name "$b" -PropertyType Binary -Value ([byte[]]$e[($b * 128)..($b * 128 + 127)]) -Force | Out-Null
-    }
-    L "override written ($($e.Length) bytes)"
+    Write-Override (Join-Path $dir 'edid_override.bin')
     Restart-Gpu
     L "waiting up to $Timeout s for edid_keep.flag"
     $end = (Get-Date).AddSeconds($Timeout)

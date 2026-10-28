@@ -82,9 +82,13 @@ def main():
         return
     fmt, bpc = FMT[sys.argv[2]], BPC[int(sys.argv[3])]
     hold = float(sys.argv[4]) if len(sys.argv) > 4 else 15
-    rc, d = call(did, 2, colorFormat=fmt, colorimetry=0xFF if fmt else 0, dynamicRange=2, bpc=bpc,
+    keep = '--keep' in sys.argv
+    # colorimetry 0 / range 0 is the combination the driver reports via IS_SUPPORTED_COLOR
+    rc, d = call(did, 2, colorFormat=fmt, colorimetry=0, dynamicRange=0, bpc=bpc,
                  colorSelectionPolicy=0, depth=0)
     show('set', rc, d)
+    if rc == 0 and keep:
+        return
     try:
         if rc == 0:
             time.sleep(hold)
