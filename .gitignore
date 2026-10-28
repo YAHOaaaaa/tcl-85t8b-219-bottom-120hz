@@ -1,0 +1,7 @@
+# Generated per machine; may contain device identifiers (EDID serial, instance paths)
+*.bin
+*.log
+*.reg
+edid_keep.flag
+scripts/windows/ui/
+__pycache__/
