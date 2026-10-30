@@ -22,6 +22,35 @@ PC（RTX 3070）から **3840x1600 / 120Hz** で表示できるようにした�
 
 3回再現（カスタム解像度の試行、保存時、通常のモード切替後）。
 
+## 追記（2026-10-30）：3840x1600@144 も出る
+
+同じ「21:9・下」のまま、**3840x1600@144（CVT-RB、987.26MHz）** も表示できた。ただし **EDID 上書き（Max FRL 8G×4）が必要**。
+上書きなしの手順（ハイフレームレートモード OFF → ドライバー再起動 → CVT-RB の 144Hz を作成）は、この TV・ケーブル・端子では再現しなかった。
+
+| 条件 | EDID 上書き | FRL | HDMI 受信 | パネル出力 | 結果 |
+|---|---|---|---|---|---|
+| 144Hz・CVT-RB | なし（TV の EDID、Max FRL 12G×4） | FRL 12G×4 | DE Stable=0（無信号） | – | 失敗 |
+| 144Hz・CVT-RB | 8G×4 | FRL 8G×4 | 3840x1600・143.961Hz・Stable | 144000〜144002 | **成功** |
+| 120Hz（比較） | 8G×4 | FRL 8G×4 | 3840x1600・120Hz・Stable | 120000〜120002 | 成功 |
+
+- 条件：Game Bar 21:9・下、**ハイフレームレートモード OFF**、HDMI 互換性設定「自動」、出力 RGB 8bit。
+- Game Bar の表示は「FPS 144.0」、表示窓 `disp[0, 514, 3840, 1645]` のまま。
+- 7 回再現：試行 30 秒・120 秒・120 秒、保存時、通常のモード変更で 120⇔144 を 3 往復（切替 1 秒後に受信 143.961Hz、3 秒後にパネル 144002）。
+- 120 秒間・約 560 回（0.2 秒間隔）の受信部監視で、DE Stable の落ち込みは 0 回。
+- 保存直後に 1 回だけ TV がスタンバイに入った（TV は再起動していない。原因は未特定。その後は再発なし）。
+- 帯域：987.26MHz × 24bit ≈ 23.7Gbps。FRL 8G×4 の実効（約 27.8Gbps）に収まる。TMDS（600MHz）と 6G×4（約 21.3Gbps）では不足。
+- CVT-RB2 は試していない（CVT-RB で成功し、上書きなしの失敗はリンク速度 12G が原因のため）。
+
+```powershell
+py -I .\scripts\windows\nvcustom.py 3840 1600 144 30 rb          # 30秒だけ試して自動で戻す
+py -I .\scripts\windows\nvcustom.py 3840 1600 144 10 rb --save   # 保存（120Hz とは別のモードとして追加）
+.\scripts\windows\rxinfo.ps1                                     # Refresh≈143961, FRL_8G_4CH, DE Stable=1
+```
+
+上書きなしの比較には、管理者 PowerShell で `.\scripts\windows\edid_tempremove_admin.ps1` を使った
+（上書きを外して GPU ドライバーを再起動し、`edid_tempremove_done.flag` か 300 秒で 8G の上書きを必ず書き戻す）。
+詳細は [docs/experiments.md](docs/experiments.md) の T26〜T33。
+
 ## 何が 60Hz にしていたか
 
 1. **Game Bar で 21:9 を選ぶと、TV は EDID を差し替える。** 差し替え後の 21:9 用タイミングは
@@ -81,7 +110,7 @@ NVIDIA カスタム解像度として送る。必要帯域は約 22Gbps なの�
 
 - EDID 上書き中は、PC は TV 側の EDID 変更（16:9 / 21:9 / ハイフレームレート）を見ない。
 - GPU ドライバー再起動後、Windows のディスプレイ名（`\\.\DISPLAYn`）が変わることがある。スクリプトはプライマリを自動検出する。
-- **PC／TV の再起動後も維持されるかは未確認。**
+- PC の再起動後も、EDID 上書きとカスタム解像度は維持された（2026-10-30 確認）。TV の再起動後は未確認。
 - ハイフレームレートモードを ON/OFF すると、TV が HDMI 互換性設定を「オン」に書き換えることがあった。戻すときは「自動」に。
 - `output_frame_rate`（MediaTek デバッグノード）の意味は数値の挙動からの推定（60Hz 入力時は 119926＝入力の 2 倍）。
 - **YCbCr 4:2:0 にはできない**（カスタムタイミングには 4:2:0 が使われない）。詳細は [docs/findings.md](docs/findings.md)。
@@ -95,6 +124,7 @@ NVIDIA カスタム解像度として送る。必要帯域は約 22Gbps なの�
 | `scripts/windows/nvcustom.py` | NVAPI `TryCustomDisplay`／`SaveCustomDisplay` でカスタム解像度（CVT-RB／RB2）を試行・保存 |
 | `scripts/windows/edid_make.ps1` | 現在の EDID から Max_FRL_Rate を下げた上書き用 EDID を生成 |
 | `scripts/windows/edid_apply_admin.ps1` | EDID 上書きの適用／削除（自動ロールバック付き、要管理者） |
+| `scripts/windows/edid_tempremove_admin.ps1` | EDID 上書きを一時的に外し、合図か時間切れで 8G の上書きを必ず書き戻す（比較試験用、要管理者） |
 | `scripts/windows/rxinfo.ps1` | TV の HDMI 受信部状態（FRL レート、タイミング、色形式）を表示 |
 | `scripts/windows/setmode.ps1` / `listmodes.ps1` | Windows の表示モード変更（自動復帰付き）／一覧 |
 | `scripts/windows/parse_edid.ps1` | Windows が保存した EDID のデコード |

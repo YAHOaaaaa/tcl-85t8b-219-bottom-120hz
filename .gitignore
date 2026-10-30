@@ -5,3 +5,4 @@
 edid_keep.flag
 scripts/windows/ui/
 __pycache__/
+edid_tempremove_done.flag
