@@ -47,6 +47,14 @@ py -I .\scripts\windows\nvcustom.py 3840 1600 144 10 rb --save   # 保存（120H
 .\scripts\windows\rxinfo.ps1                                     # Refresh≈143961, FRL_8G_4CH, DE Stable=1
 ```
 
+**16:9 の 4K144 は出せなかった**（ケーブル変更なし、HDMI 1）。4K の上限は 120Hz（RGB 8bit／FRL 8G×4、または YCbCr 4:2:0 8bit）。
+
+- 4K144 RGB 8bit は約 31.3Gbps で 8G×4 に収まらない。Max FRL を 10G×4 にすると、リンクはつながるが TV は「信号がありません」（受信部 `Regen Fsm=REGEN_INIT`）。12G×4 も同じく映らない。
+- 4:2:0 は EDID 上 4K の標準 VIC（4K60・4K120 など）にしか使えず、4K144 には使えない。4:2:0 の状態からでも、ドライバーはカスタムの 4K144 を拒否した。4:2:2 は帯域を減らさない。
+- 8G×4 に収まる 4K125 は受信できるが、16:9 ではパネル出力が約 120.3Hz のまま（ハイフレームレートモードの ON/OFF に関係なし）。
+- **映っているかの判定には、受信部の DE Stable ではなく `Regen Fsm`（REGEN_DONE）と画面の表示を使うこと。** DE Stable=1 は「信号がありません」の状態でも出る。
+- 詳細は [docs/experiments.md](docs/experiments.md) の T34〜T43。
+
 上書きなしの比較には、管理者 PowerShell で `.\scripts\windows\edid_tempremove_admin.ps1` を使った
 （上書きを外して GPU ドライバーを再起動し、`edid_tempremove_done.flag` か 300 秒で 8G の上書きを必ず書き戻す）。
 詳細は [docs/experiments.md](docs/experiments.md) の T26〜T33。
